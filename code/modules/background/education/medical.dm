@@ -7,6 +7,15 @@
 		/singleton/skill/anatomy,
 	)
 
+/singleton/education_field/surgery
+	name = "Surgery"
+	description_body = "You specialize in performing surgical procedures to treat injuries and diseases."
+	primary_skill = /singleton/skill/surgery
+	secondary_skills = list(
+		/singleton/skill/medicine,
+		/singleton/skill/anatomy,
+	)
+
 /singleton/education_field/pharmacology
 	name = "Pharmacology"
 	description_body = "You specialize in the preparation, dispensing, and appropriate use of medication."
@@ -47,7 +56,6 @@
 		SPECIES_SKRELL_AXIORI = 60,
 	)
 	skills = list(
-		/singleton/skill/surgery = SKILL_LEVEL_FAMILIAR,
 		/singleton/skill/medicine = SKILL_LEVEL_TRAINED,
 		/singleton/skill/anatomy = SKILL_LEVEL_TRAINED,
 		/singleton/skill/pharmacology = SKILL_LEVEL_TRAINED,
@@ -65,5 +73,5 @@
 		/* Can perform only the most basic surgeries up to arterial bleeds. */
 		/singleton/skill/surgery = SKILL_LEVEL_FAMILIAR,
 		/singleton/skill/medicine = SKILL_LEVEL_TRAINED,
-		/singleton/skill/anatomy = SKILL_LEVEL_TRAINED,
+		/singleton/skill/anatomy = SKILL_LEVEL_FAMILIAR,
 	)

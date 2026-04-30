@@ -2,7 +2,11 @@
 	name = "Research & Development"
 	description_body = "Your specialization is in scientific research and development. This may range from Firearms Engineering to Bluespace Engineering or even Aerospace Engineering. Space is the limit for your research."
 	primary_skill = /singleton/skill/research
-	secondary_skills = list()
+	secondary_skills = list(
+		/singleton/skill/mechanical_engineering,
+		/singleton/skill/pharmacology,
+		/singleton/skill/anatomy
+	)
 
 /singleton/education_field/robotics
 	name = "Robotics"
@@ -31,6 +35,7 @@
 	secondary_skills = list(
 		/singleton/skill/research,
 		/singleton/skill/gardening,
+		/singleton/skill/pharmacology,
 	)
 
 /singleton/education_field/xenobiology
@@ -39,4 +44,7 @@
 	primary_skill = /singleton/skill/xenobiology
 	secondary_skills = list(
 		/singleton/skill/research,
+		/singleton/skill/surgery,
+		/singleton/skill/anatomy,
+		/singleton/skill/pharmacology,
 	)
