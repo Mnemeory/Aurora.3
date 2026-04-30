@@ -110,8 +110,12 @@ GLOBAL_LIST_EMPTY_TYPED(preferences_datums, /datum/preferences)
 	var/culture
 	/// The character's origin singleton.
 	var/origin
-	/// The character's education singleton.
-	var/education
+	/// The character's education field singleton path (for academic degrees).
+	var/education_field
+	/// The character's education level singleton path (for academic degrees).
+	var/education_level
+	/// The character's education background singleton path (for vocational backgrounds).
+	var/education_background
 
 	/// The character's skills list. JSON.
 	var/list/skills = list()
