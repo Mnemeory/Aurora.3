@@ -4,23 +4,23 @@
 
 /datum/category_item/player_setup_item/skills/load_character(var/savefile/savefile)
 	savefile["skills"] >> pref.skills
+	savefile["education_type"] >> pref.education_type
 	savefile["education_field"] >> pref.education_field
 	savefile["education_level"] >> pref.education_level
-	savefile["education_background"] >> pref.education_background
 
 /datum/category_item/player_setup_item/skills/save_character(var/savefile/savefile)
 	savefile["skills"] << pref.skills
+	savefile["education_type"] << pref.education_type
 	savefile["education_field"] << pref.education_field
 	savefile["education_level"] << pref.education_level
-	savefile["education_background"] << pref.education_background
 
 /datum/category_item/player_setup_item/skills/gather_load_query()
 	return list(
 		"ss13_characters" = list(
 			"vars" = list(
+				"education_type",
 				"education_field",
 				"education_level",
-				"education_background",
 				"skills",
 			),
 			"args" = list("id"),
@@ -33,9 +33,9 @@
 /datum/category_item/player_setup_item/skills/gather_save_query()
 	return list(
 		"ss13_characters" = list(
+			"education_type",
 			"education_field",
 			"education_level",
-			"education_background",
 			"skills",
 			"id" = 1,
 			"ckey" = 1,
@@ -43,8 +43,12 @@
 	)
 
 /datum/category_item/player_setup_item/skills/gather_save_parameters()
+	sanitize_character()
+
 	var/list/sanitized_skills = list()
 	for(var/skill_path in pref.skills)
+		if(!skill_path)
+			continue
 		var/singleton/skill/skill = GET_SINGLETON(skill_path)
 		if(!istype(skill))
 			continue
@@ -54,9 +58,9 @@
 		sanitized_skills["[skill.type]"] = skill_value
 
 	return list(
+		"education_type" = pref.education_type,
 		"education_field" = pref.education_field,
 		"education_level" = pref.education_level,
-		"education_background" = pref.education_background,
 		"skills" = json_encode(sanitized_skills),
 		"id" = pref.current_character,
 		"ckey" = PREF_CLIENT_CKEY,
@@ -87,38 +91,103 @@
 		if(!key)
 			continue
 		var/skill_path = istext(key) ? text2path(key) : key
+		if(!ispath(skill_path, /singleton/skill))
+			continue
 		var/singleton/skill/skill = GET_SINGLETON(skill_path)
 		if(istype(skill))
 			pref.skills[skill.type] = value
 
-/// Returns the effective skills map from the current education selection (field+level or background).
+/datum/category_item/player_setup_item/skills/proc/is_valid_education_type(education_type)
+	return education_type in get_education_type_options()
+
+/datum/category_item/player_setup_item/skills/proc/get_education_type_options()
+	var/list/singleton/education/education_list = GET_SINGLETON_SUBTYPE_MAP(/singleton/education)
+	var/list/options = list()
+	for(var/singleton_type in education_list)
+		var/singleton/education/education = education_list[singleton_type]
+		if(!education.can_select(pref.species, pref.age))
+			continue
+		options[education.education_type] = education.education_type
+
+	sortTim(options, GLOBAL_PROC_REF(cmp_text_asc), FALSE)
+	return options
+
+/datum/category_item/player_setup_item/skills/proc/get_education_level_options(education_type)
+	var/list/singleton/education_level/education_levels = GET_SINGLETON_SUBTYPE_MAP(/singleton/education_level)
+	var/list/options = list()
+	for(var/level_path in education_levels)
+		var/singleton/education_level/education_level = education_levels[level_path]
+		if(education_level.education_type != education_type)
+			continue
+		if(!education_level.can_select(pref.species, pref.age))
+			continue
+		options[education_level.name] = education_level
+
+	sortTim(options, GLOBAL_PROC_REF(cmp_text_asc), FALSE)
+	return options
+
+/datum/category_item/player_setup_item/skills/proc/get_education_options(education_type)
+	var/list/singleton/education/education_list = GET_SINGLETON_SUBTYPE_MAP(/singleton/education)
+	var/list/options = list()
+	for(var/singleton_type in education_list)
+		var/singleton/education/education = education_list[singleton_type]
+		if(education.education_type != education_type)
+			continue
+		if(!education.can_select(pref.species, pref.age))
+			continue
+		options[education.name] = education
+
+	sortTim(options, GLOBAL_PROC_REF(cmp_text_asc), FALSE)
+	return options
+
+/datum/category_item/player_setup_item/skills/proc/get_selected_education()
+	var/education_path = text2path(pref.education_field)
+	if(!ispath(education_path, /singleton/education))
+		return null
+
+	var/singleton/education/education = GET_SINGLETON(education_path)
+	if(!istype(education))
+		return null
+	if(education.education_type != pref.education_type)
+		return null
+	if(!education.can_select(pref.species, pref.age))
+		return null
+
+	return education
+
+/datum/category_item/player_setup_item/skills/proc/get_selected_education_level()
+	var/level_path = text2path(pref.education_level)
+	if(!ispath(level_path, /singleton/education_level))
+		return null
+
+	var/singleton/education_level/education_level = GET_SINGLETON(level_path)
+	if(!istype(education_level))
+		return null
+	if(education_level.education_type != pref.education_type)
+		return null
+	if(!education_level.can_select(pref.species, pref.age))
+		return null
+
+	return education_level
+
+/// Returns the effective skills map from the current education selection.
 /datum/category_item/player_setup_item/skills/proc/get_current_education_skills()
-	if(pref.education_background)
-		var/singleton/education_background/education_background = GET_SINGLETON(text2path(pref.education_background))
-		if(istype(education_background))
-			return education_background.skills.Copy()
-	if(pref.education_field && pref.education_level)
-		var/singleton/education_field/education_field = GET_SINGLETON(text2path(pref.education_field))
-		var/singleton/education_level/education_level = GET_SINGLETON(text2path(pref.education_level))
-		if(istype(education_field) && istype(education_level))
-			return education_field.get_skills(education_level)
-	return list()
+	var/singleton/education/education = get_selected_education()
+	if(!istype(education))
+		return list()
+
+	return education.get_skills(get_selected_education_level())
 
 /// Returns the display name of the current education selection.
 /datum/category_item/player_setup_item/skills/proc/get_education_display_name()
-	if(pref.education_background)
-		var/singleton/education_background/education_background = GET_SINGLETON(text2path(pref.education_background))
-		if(istype(education_background))
-			return education_background.name
-	if(pref.education_field && pref.education_level)
-		var/singleton/education_field/education_field = GET_SINGLETON(text2path(pref.education_field))
-		var/singleton/education_level/education_level = GET_SINGLETON(text2path(pref.education_level))
-		if(istype(education_field) && istype(education_level))
-			return "[education_level.name] in [education_field.name]"
-	return "No Education"
+	var/singleton/education/education = get_selected_education()
+	if(!istype(education))
+		return "No Education"
+
+	return education.get_display_name(get_selected_education_level())
 
 /// Applies the current education's minimum skills to pref.skills.
-/datum/category_item/player_setup_item/skills/proc/apply_education_skills(mob/user)
+/datum/category_item/player_setup_item/skills/proc/apply_education_skills()
 	pref.skills = list()
 	for(var/key in SSskills.required_skills)
 		var/singleton/skill/skill = GET_SINGLETON(key)
@@ -127,49 +196,30 @@
 
 	var/list/education_skills = get_current_education_skills()
 	for(var/skill_path in education_skills)
+		if(!skill_path)
+			continue
 		var/singleton/skill/skill = GET_SINGLETON(skill_path)
 		if(!istype(skill))
 			continue
 		pref.skills[skill_path] = education_skills[skill_path]
-		if(user)
-			to_chat(user, SPAN_NOTICE("Added the [skill.name] skill at level [skill.skill_level_map[education_skills[skill_path]]]."))
 
 /datum/category_item/player_setup_item/skills/sanitize_character(var/sql_load = 0)
 	if(!pref.skills)
 		pref.skills = list()
 
-	if(istext(pref.education_background) && ispath(text2path(pref.education_background), /singleton/education_background))
-		var/singleton/education_background/education_background = GET_SINGLETON(text2path(pref.education_background))
-		if(istype(education_background))
-			if(length(education_background.species_restriction) && (pref.species in education_background.species_restriction))
-				pref.education_background = null
-			if(length(education_background.minimum_character_age) && (pref.species in education_background.minimum_character_age))
-				if(pref.age < education_background.minimum_character_age[pref.species])
-					pref.education_background = null
-
-	var/singleton/education_field/education_field = GET_SINGLETON(text2path(pref.education_field))
-	var/singleton/education_level/education_level = GET_SINGLETON(text2path(pref.education_level))
-	if(!istype(education_field) || !istype(education_level))
+	if(!is_valid_education_type(pref.education_type))
+		pref.education_type = null
 		pref.education_field = null
 		pref.education_level = null
 	else
-		if(length(education_field.species_restriction) && (pref.species in education_field.species_restriction))
+		if(pref.education_field && !get_selected_education())
 			pref.education_field = null
+		if(!education_type_uses_level(pref.education_type))
 			pref.education_level = null
-		if(length(education_level.species_restriction) && (pref.species in education_level.species_restriction))
-			pref.education_field = null
-			pref.education_level = null
-		var/field_minimum_age = (pref.species in education_field.minimum_character_age) ? education_field.minimum_character_age[pref.species] : 0
-		var/level_minimum_age = (pref.species in education_level.minimum_character_age) ? education_level.minimum_character_age[pref.species] : 0
-		var/minimum_age = max(field_minimum_age, level_minimum_age)
-		if(minimum_age && pref.age < minimum_age)
-			pref.education_field = null
+		else if(pref.education_level && !get_selected_education_level())
 			pref.education_level = null
 
-	if(!pref.education_background && (!pref.education_field || !pref.education_level))
-		var/singleton/education_background/default_education = find_suitable_education()
-		pref.education_background = default_education ? "[default_education.type]" : null
-		pref.education_field = null
+	if(!pref.education_field)
 		pref.education_level = null
 
 	var/list/education_skills = get_current_education_skills()
@@ -177,6 +227,9 @@
 		if(!(skill_path in pref.skills) || pref.skills[skill_path] < education_skills[skill_path])
 			pref.skills[skill_path] = education_skills[skill_path]
 	for(var/skill_path in pref.skills.Copy())
+		if(!skill_path)
+			pref.skills -= skill_path
+			continue
 		var/singleton/skill/skill = GET_SINGLETON(skill_path)
 		if(!istype(skill))
 			pref.skills -= skill_path
@@ -199,32 +252,138 @@
 	dat += "<style>.Current,a.Current{background: #2f943c}</style>"
 	dat += "<style>.Unavailable{background: #d09000}</style>"
 
-	var/education_name = get_education_display_name()
-	if(pref.education_background)
-		dat += "<center><b>Education:</b> <a href='?src=[REF(src)];open_education_type_menu=1'>Vocational Background</a> - "
-		dat += "<a href='?src=[REF(src)];open_education_background_menu=1'>[education_name]</a></center><br/><hr>"
-	else if(pref.education_field && pref.education_level)
-		var/singleton/education_field/education_field = GET_SINGLETON(text2path(pref.education_field))
-		var/singleton/education_level/education_level = GET_SINGLETON(text2path(pref.education_level))
-		dat += "<center><b>Education:</b> <a href='?src=[REF(src)];open_education_type_menu=1'>Academic Degree</a> - "
-		dat += "<a href='?src=[REF(src)];open_education_field_menu=1'>[education_field.name]</a> - "
-		dat += "<a href='?src=[REF(src)];open_education_level_menu=1'>[education_level.name]</a></center><br/><hr>"
-	else
-		dat += "<center><b>Education:</b> <a href='?src=[REF(src)];open_education_type_menu=1'>[education_name]</a></center><br/><hr>"
-
 	dat += "<table>"
+	dat += get_education_rows()
+
 	var/list/education_skills = get_current_education_skills()
 	for(var/category in SSskills.skill_tree)
 		var/singleton/skill_category/skill_category = category
-		dat += "<tr><th colspan = 4><b>[skill_category.name] ([calculate_remaining_skill_points(skill_category)] points remaining)</b>"
+		dat += "<tr><th colspan = 5><b>[skill_category.name] ([calculate_remaining_skill_points(skill_category)] points remaining)</b>"
 		dat += "</th></tr>"
 		for(var/subcategory in SSskills.skill_tree[skill_category])
-			dat += "<tr><th colspan = 3><b>[subcategory]</b></th></tr>"
+			dat += "<tr><th colspan = 5><b>[subcategory]</b></th></tr>"
 			for(var/singleton/skill/skill in SSskills.skill_tree[skill_category][subcategory])
 				dat += get_skill_row(skill, education_skills)
 	dat += "</table>"
 
 	. = JOINTEXT(dat)
+
+/**
+ * Returns the education selector rows.
+ */
+/datum/category_item/player_setup_item/skills/proc/get_education_rows()
+	var/list/dat = list()
+	dat += "<tr><th colspan = 5><b>Education</b></th></tr>"
+
+	dat += get_education_type_row()
+	dat += get_education_level_row()
+	dat += get_education_field_row()
+	dat += get_education_row(null, "<i>[get_education_skill_summary()]</i>")
+
+	dat += "<tr><td colspan = 5><hr></td></tr>"
+	return JOINTEXT(dat)
+
+/**
+ * Returns an education selector row.
+ */
+/datum/category_item/player_setup_item/skills/proc/get_education_row(label, value)
+	if(!label)
+		return "<tr style='text-align:left;'><th></th><th colspan = 4>[value]</th></tr>"
+	return "<tr style='text-align:left;'><th>[label]</th><th colspan = 4>[value]</th></tr>"
+
+/**
+ * Returns the inline education type selector row.
+ */
+/datum/category_item/player_setup_item/skills/proc/get_education_type_row()
+	var/list/dat = list()
+	dat += "<tr style='text-align:left;'><th>Type</th><th colspan = 4>"
+
+	var/list/options = get_education_type_options()
+	for(var/education_type in options)
+		dat += get_education_button(capitalize(education_type), "set_education_type=[education_type]", pref.education_type == education_type)
+
+	dat += "</th></tr>"
+	return JOINTEXT(dat)
+
+/**
+ * Returns the inline education level selector row.
+ */
+/datum/category_item/player_setup_item/skills/proc/get_education_level_row()
+	var/list/dat = list()
+	dat += "<tr style='text-align:left;'><th>Level</th><th colspan = 4>"
+
+	if(!is_valid_education_type(pref.education_type))
+		dat += "Unselected</th></tr>"
+		return JOINTEXT(dat)
+
+	if(!education_type_uses_level(pref.education_type))
+		dat += "Not Applicable</th></tr>"
+		return JOINTEXT(dat)
+
+	var/list/options = get_education_level_options(pref.education_type)
+	if(!length(options))
+		dat += "Not Applicable</th></tr>"
+		return JOINTEXT(dat)
+
+	for(var/level_name in options)
+		var/singleton/education_level/education_level = options[level_name]
+		dat += get_education_button(education_level.name, "set_education_level=[education_level.type]", pref.education_level == "[education_level.type]")
+
+	dat += "</th></tr>"
+	return JOINTEXT(dat)
+
+/**
+ * Returns the inline education field selector row.
+ */
+/datum/category_item/player_setup_item/skills/proc/get_education_field_row()
+	var/list/dat = list()
+	dat += "<tr style='text-align:left;'><th>Field</th><th colspan = 4>"
+
+	if(!is_valid_education_type(pref.education_type))
+		dat += "Unselected</th></tr>"
+		return JOINTEXT(dat)
+
+	var/list/options = get_education_options(pref.education_type)
+	if(!length(options))
+		dat += "Not Applicable</th></tr>"
+		return JOINTEXT(dat)
+
+	for(var/field_name in options)
+		var/singleton/education/education = options[field_name]
+		dat += get_education_button(education.name, "set_education_field=[education.type]", pref.education_field == "[education.type]")
+
+	dat += "</th></tr>"
+	return JOINTEXT(dat)
+
+/**
+ * Returns an inline education selector button.
+ */
+/datum/category_item/player_setup_item/skills/proc/get_education_button(text, href, selected)
+	if(selected)
+		return span("Current", text)
+	return "<a class='Selectable' href='?src=[REF(src)];[href]'>[text]</a>"
+
+/**
+ * Returns the skills granted by the current education selection as display text.
+ */
+/datum/category_item/player_setup_item/skills/proc/get_education_skill_summary()
+	var/list/education_skills = get_current_education_skills()
+	if(!length(education_skills))
+		return "No skills granted."
+
+	var/list/granted_skills = list()
+	for(var/skill_path in education_skills)
+		if(!skill_path)
+			continue
+		var/singleton/skill/skill = GET_SINGLETON(skill_path)
+		if(!istype(skill))
+			continue
+		granted_skills += "[skill.name] ([skill.skill_level_map[education_skills[skill_path]]])"
+	if(!length(granted_skills))
+		return "No skills granted."
+
+	sortTim(granted_skills, GLOBAL_PROC_REF(cmp_text_asc), FALSE)
+	return "Grants [english_list(granted_skills)]."
 
 /**
  * Returns an HTML skill row.
@@ -307,7 +466,21 @@
 	if(!istype(skill_category))
 		crash_with("Invalid skill category [skill_category] fed to calculate_remaining_skill_points!")
 
-	var/skill_points_remaining = skill_category.calculate_skill_points(GLOB.all_species[pref.species], pref.age, GET_SINGLETON(text2path(pref.culture)), GET_SINGLETON(text2path(pref.origin)))
+	var/datum/species/species = GLOB.all_species[pref.species]
+	if(!istype(species))
+		return 0
+
+	var/culture_path = text2path(pref.culture)
+	var/singleton/origin_item/culture/culture
+	if(ispath(culture_path, /singleton/origin_item/culture))
+		culture = GET_SINGLETON(culture_path)
+
+	var/origin_path = text2path(pref.origin)
+	var/singleton/origin_item/origin/origin
+	if(ispath(origin_path, /singleton/origin_item/origin))
+		origin = GET_SINGLETON(origin_path)
+
+	var/skill_points_remaining = skill_category.calculate_skill_points(species, pref.age, culture, origin)
 	var/current_points_used = get_used_skill_points_per_category(skill_category, get_current_education_skills())
 	return skill_points_remaining - current_points_used
 
@@ -320,7 +493,11 @@
 
 	. = 0
 	for(var/skill_type in pref.skills)
+		if(!skill_type)
+			continue
 		var/singleton/skill/skill = GET_SINGLETON(skill_type)
+		if(!istype(skill))
+			continue
 		if(skill.category != skill_category.type)
 			continue
 
@@ -331,8 +508,11 @@
 
 /datum/category_item/player_setup_item/skills/OnTopic(href, href_list, user)
 	if(href_list["skillinfo"])
-		var/singleton/skill/skill_to_show = GET_SINGLETON(text2path(href_list["skillinfo"]))
-		if(!skill_to_show)
+		var/skill_path = text2path(href_list["skillinfo"])
+		if(!ispath(skill_path, /singleton/skill))
+			return
+		var/singleton/skill/skill_to_show = GET_SINGLETON(skill_path)
+		if(!istype(skill_to_show))
 			log_debug("SKILLS: Invalid skill selected for [user]: [skill_to_show]")
 			return
 		var/datum/browser/skill_window = new(user, "skill_info", "Skill Information")
@@ -349,8 +529,11 @@
 		skill_window.open()
 
 	else if(href_list["setskill"])
-		var/singleton/skill/new_skill = GET_SINGLETON(text2path(href_list["setskill"]))
-		if(!new_skill)
+		var/skill_path = text2path(href_list["setskill"])
+		if(!ispath(skill_path, /singleton/skill))
+			return
+		var/singleton/skill/new_skill = GET_SINGLETON(skill_path)
+		if(!istype(new_skill))
 			log_debug("SKILLS: Invalid skill selected for [user]: [new_skill]")
 			return
 
@@ -361,104 +544,55 @@
 		pref.skills[new_skill.type] = new_skill_value
 		return TOPIC_REFRESH
 
-	else if(href_list["open_education_type_menu"])
-		var/list/options = list("Academic Degree", "Vocational Background")
-		var/result = tgui_input_list(user, "Choose your education type.", "Education Type", options)
-		if(result == "Academic Degree")
-			pref.education_background = null
-			pref.education_field = null
-			pref.education_level = null
-			pref.skills = list()
-			to_chat(user, SPAN_WARNING("Your skills have been reset as you changed your education."))
-			return TOPIC_REFRESH
-		else if(result == "Vocational Background")
-			pref.education_field = null
-			pref.education_level = null
-			pref.education_background = null
-			pref.skills = list()
-			to_chat(user, SPAN_WARNING("Your skills have been reset as you changed your education."))
-			return TOPIC_REFRESH
+	else if(href_list["set_education_type"])
+		if(!is_valid_education_type(href_list["set_education_type"]))
+			return
 
-	else if(href_list["open_education_field_menu"])
-		var/list/options = list()
-		var/list/singleton/education_field/field_list = GET_SINGLETON_SUBTYPE_MAP(/singleton/education_field)
-		for(var/singleton_type in field_list)
-			var/singleton/education_field/education_field = field_list[singleton_type]
-			if(length(education_field.species_restriction) && (pref.species in education_field.species_restriction))
-				continue
-			var/field_minimum_age = (pref.species in education_field.minimum_character_age) ? education_field.minimum_character_age[pref.species] : 0
-			if(field_minimum_age && pref.age < field_minimum_age)
-				continue
-			options[education_field.name] = education_field
-		var/result = tgui_input_list(user, "Choose your field of study.", "Education Field", options)
-		var/singleton/education_field/chosen_field = options[result]
-		if(chosen_field)
-			pref.education_field = "[chosen_field.type]"
-			if(!pref.education_level)
-				pref.education_level = "/singleton/education_level/bachelors"
-			pref.skills = list()
-			to_chat(user, SPAN_WARNING("Your skills have been reset as you changed your education."))
-			apply_education_skills(user)
-			sanitize_character()
-			return TOPIC_REFRESH
+		pref.education_type = href_list["set_education_type"]
+		pref.education_field = null
+		pref.education_level = null
+		pref.skills = list()
+		sanitize_character()
+		return TOPIC_REFRESH
 
-	else if(href_list["open_education_level_menu"])
-		var/list/options = list()
-		var/list/singleton/education_level/level_list = GET_SINGLETON_SUBTYPE_MAP(/singleton/education_level)
-		for(var/singleton_type in level_list)
-			var/singleton/education_level/education_level = level_list[singleton_type]
-			if(length(education_level.species_restriction) && (pref.species in education_level.species_restriction))
-				continue
-			var/level_minimum_age = (pref.species in education_level.minimum_character_age) ? education_level.minimum_character_age[pref.species] : 0
-			if(level_minimum_age && pref.age < level_minimum_age)
-				continue
-			options[education_level.name] = education_level
-		var/result = tgui_input_list(user, "Choose your degree level.", "Education Level", options)
-		var/singleton/education_level/chosen_level = options[result]
-		if(chosen_level)
-			pref.education_level = "[chosen_level.type]"
-			pref.skills = list()
-			to_chat(user, SPAN_WARNING("Your skills have been reset as you changed your education."))
-			apply_education_skills(user)
-			sanitize_character()
-			return TOPIC_REFRESH
+	else if(href_list["set_education_level"])
+		var/level_path = text2path(href_list["set_education_level"])
+		if(!education_type_uses_level(pref.education_type))
+			return
+		if(!ispath(level_path, /singleton/education_level))
+			return
+		var/singleton/education_level/education_level = GET_SINGLETON(level_path)
+		if(!istype(education_level) || !education_level.can_select(pref.species, pref.age))
+			return
+		if(education_level.education_type != pref.education_type)
+			return
 
-	else if(href_list["open_education_background_menu"])
-		var/list/options = list()
-		var/list/singleton/education_background/background_list = GET_SINGLETON_SUBTYPE_MAP(/singleton/education_background)
-		for(var/singleton_type in background_list)
-			var/singleton/education_background/education_background = background_list[singleton_type]
-			if(length(education_background.species_restriction) && (pref.species in education_background.species_restriction))
-				continue
-			var/background_minimum_age = (pref.species in education_background.minimum_character_age) ? education_background.minimum_character_age[pref.species] : 0
-			if(background_minimum_age && pref.age < background_minimum_age)
-				continue
-			options[education_background.name] = education_background
-		var/result = tgui_input_list(user, "Choose your vocational background.", "Education Background", options)
-		var/singleton/education_background/chosen_bg = options[result]
-		if(chosen_bg)
-			pref.education_background = "[chosen_bg.type]"
-			pref.education_field = null
+		pref.education_level = "[level_path]"
+		pref.skills = list()
+		apply_education_skills()
+		sanitize_character()
+		return TOPIC_REFRESH
+
+	else if(href_list["set_education_field"])
+		var/field_path = text2path(href_list["set_education_field"])
+		if(!is_valid_education_type(pref.education_type))
+			return
+		if(!ispath(field_path, /singleton/education))
+			return
+		var/singleton/education/education = GET_SINGLETON(field_path)
+		if(!istype(education))
+			return
+		if(education.education_type != pref.education_type)
+			return
+		if(!education.can_select(pref.species, pref.age))
+			return
+
+		if(!education_type_uses_level(pref.education_type))
 			pref.education_level = null
-			pref.skills = list()
-			to_chat(user, SPAN_WARNING("Your skills have been reset as you changed your education."))
-			apply_education_skills(user)
-			sanitize_character()
-			return TOPIC_REFRESH
+		pref.education_field = "[field_path]"
+		pref.skills = list()
+		apply_education_skills()
+		sanitize_character()
+		return TOPIC_REFRESH
 
 	return ..()
-
-/**
- * Finds and returns the first suitable default education for the pref datum.
- * Defaults to High School Diploma background.
- */
-/datum/category_item/player_setup_item/skills/proc/find_suitable_education()
-	var/singleton/education_background/education_background = GET_SINGLETON(/singleton/education_background/high_school)
-	if(!istype(education_background))
-		return null
-	if(length(education_background.species_restriction) && (pref.species in education_background.species_restriction))
-		return null
-	if(length(education_background.minimum_character_age) && (pref.species in education_background.minimum_character_age))
-		if(pref.age < education_background.minimum_character_age[pref.species])
-			return null
-	return education_background

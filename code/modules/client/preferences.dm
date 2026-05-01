@@ -110,12 +110,12 @@ GLOBAL_LIST_EMPTY_TYPED(preferences_datums, /datum/preferences)
 	var/culture
 	/// The character's origin singleton.
 	var/origin
-	/// The character's education field singleton path (for academic degrees).
+	/// The character's selected education type.
+	var/education_type
+	/// The character's selected education singleton path.
 	var/education_field
-	/// The character's education level singleton path (for academic degrees).
+	/// The character's education level singleton path.
 	var/education_level
-	/// The character's education background singleton path (for vocational backgrounds).
-	var/education_background
 
 	/// The character's skills list. JSON.
 	var/list/skills = list()
@@ -534,6 +534,8 @@ GLOBAL_LIST_EMPTY_TYPED(preferences_datums, /datum/preferences)
 
 	for(var/skill_type in skills)
 		var/singleton/skill/skill = GET_SINGLETON(skill_type)
+		if(!istype(skill))
+			continue
 		skill.on_spawn(character, skills[skill.type])
 
 	if(icon_updates)

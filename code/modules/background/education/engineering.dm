@@ -1,4 +1,8 @@
-/singleton/education_field/mechanical_engineering
+/*#######################
+	Academic Fields
+#######################*/
+
+/singleton/education/mechanical_engineering
 	name = "Mechanical Engineering"
 	description_body = "You specialize in constructing structural systems, lathing, and the more manual pleasures of engineering, such as welding and wrenching."
 	primary_skill = /singleton/skill/mechanical_engineering
@@ -8,7 +12,7 @@
 		/singleton/skill/reactor_systems,
 	)
 
-/singleton/education_field/electrical_engineering
+/singleton/education/electrical_engineering
 	name = "Electrical Engineering"
 	description_body = "You specialize in variable-voltage cabling, grid management, electronic hardware, and other electrical systems."
 	primary_skill = /singleton/skill/electrical_engineering
@@ -18,7 +22,7 @@
 		/singleton/skill/reactor_systems,
 	)
 
-/singleton/education_field/atmospherics
+/singleton/education/atmospherics
 	name = "Atmospherics Systems"
 	description_body = "You specialize in everything to do with atmospherics systems, whether that's the delivery of gases, usage of atmospherics machines, or simply how to use a pipe wrench."
 	primary_skill = /singleton/skill/atmospherics_systems
@@ -28,7 +32,7 @@
 		/singleton/skill/reactor_systems,
 	)
 
-/singleton/education_field/reactor_systems
+/singleton/education/reactor_systems
 	name = "Reactor Systems"
 	description_body = "You specialize in everything to do with a reactor's systems, whether you are looking at a Supermatter crystal, a fusion reactor, or a combustion chamber."
 	primary_skill = /singleton/skill/reactor_systems
@@ -38,9 +42,14 @@
 		/singleton/skill/atmospherics_systems,
 	)
 
-/singleton/education_background/engineering_certification
+/*#######################
+	Vocational Backgrounds
+#######################*/
+
+/singleton/education/engineering_certification
 	name = "Engineering Certification"
-	description = "You may not have an Engineering degree or a specialized background, but you had enough fundamental experience for the Conglomerate to validate it instead \
+	education_type = EDUCATION_TYPE_VOCATIONAL
+	description_body = "You may not have an Engineering degree or a specialized background, but you had enough fundamental experience for the Conglomerate to validate it instead \
 		of a degree. You do not have the same specialization as your fellow Engineers with a degree, making up for it by being a jack of all trades. \
 		You could probably fix a car, whereas they might not be able to."
 	minimum_character_age = list(
